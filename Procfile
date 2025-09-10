@@ -1,1 +1,1 @@
-web: gunicorn -c gunicorn.conf.py app:application
+web: gunicorn -c gunicorn.conf.py game2:application
