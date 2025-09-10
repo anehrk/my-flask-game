@@ -1,0 +1,52 @@
+[
+  {
+    "word": "apple",
+    "meaning": "사과",
+    "pronunciation": "æpl"
+  },
+  {
+    "word": "book",
+    "meaning": "책",
+    "pronunciation": "bʊk"
+  },
+  {
+    "word": "computer",
+    "meaning": "컴퓨터",
+    "pronunciation": "kəmˈpjuːtər"
+  },
+  {
+    "word": "dream",
+    "meaning": "꿈",
+    "pronunciation": "driːm"
+  },
+  {
+    "word": "energy",
+    "meaning": "에너지",
+    "pronunciation": "ˈenərʤi"
+  },
+  {
+    "word": "friend",
+    "meaning": "친구",
+    "pronunciation": "frend"
+  },
+  {
+    "word": "guitar",
+    "meaning": "기타",
+    "pronunciation": "ɡɪˈtɑːr"
+  },
+  {
+    "word": "happy",
+    "meaning": "행복한",
+    "pronunciation": "ˈhæpi"
+  },
+  {
+    "word": "internet",
+    "meaning": "인터넷",
+    "pronunciation": "ˈɪntərnet"
+  },
+  {
+    "word": "journey",
+    "meaning": "여행",
+    "pronunciation": "ˈʤɜːrni"
+  }
+]
