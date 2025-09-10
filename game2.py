@@ -1,131 +1,176 @@
-from flask import Flask, render_template_string, request
+from flask import Flask, request, render_template_string
+import sqlite3
 import random
+import os
 
 app = Flask(__name__)
+DB_FILE = "game2.db"
 
-# 게임 상태
-player = {
-    "gold": 1000,
-    "exp": 0,
-    "level": 1,
-    "equipment": {"name": "기본 장비", "level": 0},
-    "inventory": []
-}
+# ------------------------
+# DB 초기화
+# ------------------------
+def init_db():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            gold INTEGER DEFAULT 1000,
+            level INTEGER DEFAULT 1,
+            item_potion INTEGER DEFAULT 3
+        )
+    """)
+    conn.commit()
+    conn.close()
 
-base_success_rate = 0.7
-destroy_on_fail = True
+init_db()
 
-# HTML + CSS
-HTML_TEMPLATE = """
+# ------------------------
+# HTML 템플릿
+# ------------------------
+LOGIN_HTML = """
 <!DOCTYPE html>
-<html lang="ko">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>랜덤 강화 게임</title>
+    <title>게임 로그인</title>
     <style>
-        body { font-family: Arial, sans-serif; background: #f0f0f0; text-align: center; }
-        h1 { color: #333; }
-        .status { background: #fff; padding: 20px; margin: 20px auto; border-radius: 10px; width: 300px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        .equipment, .inventory { background: #fff; padding: 15px; margin: 10px auto; border-radius: 10px; width: 300px; box-shadow: 0 0 5px rgba(0,0,0,0.1); }
-        button { padding: 10px 20px; margin: 5px; border: none; border-radius: 5px; background: #4CAF50; color: white; cursor: pointer; font-size: 16px; }
-        button:hover { background: #45a049; }
-        ul { list-style: none; padding: 0; }
-        li { background: #eee; margin: 5px 0; padding: 5px; border-radius: 5px; }
-        .message { font-weight: bold; color: #d9534f; margin: 15px; }
+        body { font-family: Arial, sans-serif; background-color: #f2f2f2; text-align: center; }
+        form { margin-top: 100px; }
+        input { padding: 8px; font-size: 16px; }
+        button { padding: 8px 16px; font-size: 16px; margin-left: 10px; cursor: pointer; }
+        h2 { color: #333; }
     </style>
 </head>
 <body>
-    <h1>🎮 랜덤 강화 게임 🎮</h1>
-    
-    <div class="status">
-        <p>레벨: {{ player.level }} | 경험치: {{ player.exp }} | 골드: {{ player.gold }}</p>
-    </div>
-    
-    <div class="equipment">
-        <h2>장비</h2>
-        <p>이름: {{ player.equipment.name }} | 강화: +{{ player.equipment.level }}</p>
-        <form method="post" action="/enhance">
-            <button type="submit">강화 시도</button>
-        </form>
-    </div>
-
-    <div class="equipment">
-        <h2>사냥</h2>
-        <form method="post" action="/hunt">
-            <button type="submit">사냥하기</button>
-        </form>
-    </div>
-
-    <div class="equipment">
-        <h2>상점</h2>
-        <form method="post" action="/buy">
-            <button type="submit">아이템 구매 (500골드)</button>
-        </form>
-    </div>
-
-    <div class="inventory">
-        <h2>인벤토리</h2>
-        <ul>
-            {% for item in player.inventory %}
-            <li>{{ item }}</li>
-            {% endfor %}
-        </ul>
-    </div>
-
-    <div class="message">{{ message }}</div>
+<h2>게임 로그인</h2>
+<form method="post" action="/login">
+    아이디: <input type="text" name="user_id" required>
+    <button type="submit">로그인</button>
+</form>
 </body>
 </html>
 """
 
-# 강화
-@app.route('/enhance', methods=['POST'])
-def enhance():
-    global player
-    msg = ""
-    rate = base_success_rate - (player['equipment']['level'] * 0.05)
-    rate = max(rate, 0.1)
-    if random.random() < rate:
-        player['equipment']['level'] += 1
-        msg = f"✨ 강화 성공! +{player['equipment']['level']} 단계 ✨"
-    else:
-        if destroy_on_fail:
-            player['equipment'] = {"name": "기본 장비", "level": 0}
-            msg = "💥 강화 실패! 장비가 파괴되었습니다 💥"
-        else:
-            msg = "❌ 강화 실패!"
-    return render_template_string(HTML_TEMPLATE, player=player, message=msg)
+GAME_HTML = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>게임 화면</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #e6f7ff; text-align: center; }
+        .container { margin-top: 50px; }
+        button { padding: 10px 20px; margin: 5px; font-size: 16px; cursor: pointer; border-radius: 5px; }
+        .success { color: green; font-weight: bold; }
+        .fail { color: red; font-weight: bold; }
+        .status { margin: 20px 0; font-size: 18px; }
+        .card { display: inline-block; background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="card">
+        <h2>{{user_id}}님 환영합니다!</h2>
+        <div class="status">
+            <p>레벨: {{level}}</p>
+            <p>골드: {{gold}}</p>
+            <p>포션: {{item_potion}}</p>
+        </div>
 
-# 사냥
-@app.route('/hunt', methods=['POST'])
-def hunt():
-    global player
-    gold_earned = random.randint(50, 200)
-    exp_earned = random.randint(10, 50)
-    player['gold'] += gold_earned
-    player['exp'] += exp_earned
-    msg = f"⚔️ 사냥 완료! 골드 +{gold_earned}, 경험치 +{exp_earned}"
-    if player['exp'] >= player['level'] * 100:
-        player['exp'] -= player['level'] * 100
-        player['level'] += 1
-        msg += f" 🎉 레벨업! 새로운 레벨: {player['level']} 🎉"
-    return render_template_string(HTML_TEMPLATE, player=player, message=msg)
+        <form method="post" action="/enhance">
+            <input type="hidden" name="user_id" value="{{user_id}}">
+            <button type="submit">강화 (골드 100 소모)</button>
+        </form>
 
-# 상점
-@app.route('/buy', methods=['POST'])
-def buy():
-    global player
-    if player['gold'] >= 500:
-        player['gold'] -= 500
-        item_name = f"아이템{len(player['inventory'])+1}"
-        player['inventory'].append(item_name)
-        msg = f"🛒 {item_name}을(를) 구매했습니다!"
-    else:
-        msg = "💰 골드가 부족합니다!"
-    return render_template_string(HTML_TEMPLATE, player=player, message=msg)
+        <form method="post" action="/use_item">
+            <input type="hidden" name="user_id" value="{{user_id}}">
+            <button type="submit">포션 사용 (레벨 +1, 1개 소모)</button>
+        </form>
 
-@app.route('/')
+        <form method="get" action="/">
+            <button>로그아웃</button>
+        </form>
+
+        {% if message %}
+            <p class="{{ 'success' if '성공' in message or '사용' in message else 'fail' }}">{{message}}</p>
+        {% endif %}
+    </div>
+</div>
+</body>
+</html>
+"""
+
+# ------------------------
+# 유저 데이터 가져오기
+# ------------------------
+def get_user(user_id):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT gold, level, item_potion FROM users WHERE id=?", (user_id,))
+    row = c.fetchone()
+    conn.close()
+    if row:
+        return {"gold": row[0], "level": row[1], "item_potion": row[2]}
+    return None
+
+# ------------------------
+# 라우팅
+# ------------------------
+@app.route("/", methods=["GET"])
 def index():
-    return render_template_string(HTML_TEMPLATE, player=player, message="")
+    return render_template_string(LOGIN_HTML)
 
+@app.route("/login", methods=["POST"])
+def login():
+    user_id = request.form["user_id"].strip()
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("INSERT OR IGNORE INTO users(id) VALUES(?)", (user_id,))
+    conn.commit()
+    conn.close()
+    user = get_user(user_id)
+    return render_template_string(GAME_HTML, user_id=user_id, **user, message="로그인 성공!")
+
+@app.route("/enhance", methods=["POST"])
+def enhance():
+    user_id = request.form["user_id"]
+    user = get_user(user_id)
+    message = ""
+    if user["gold"] < 100:
+        message = "골드가 부족합니다!"
+    else:
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        c.execute("UPDATE users SET gold = gold - 100 WHERE id=?", (user_id,))
+        if random.random() < 0.7:
+            c.execute("UPDATE users SET level = level + 1 WHERE id=?", (user_id,))
+            message = "강화 성공!"
+        else:
+            message = "강화 실패..."
+        conn.commit()
+        conn.close()
+    user = get_user(user_id)
+    return render_template_string(GAME_HTML, user_id=user_id, **user, message=message)
+
+@app.route("/use_item", methods=["POST"])
+def use_item():
+    user_id = request.form["user_id"]
+    user = get_user(user_id)
+    message = ""
+    if user["item_potion"] <= 0:
+        message = "포션이 없습니다!"
+    else:
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        c.execute("UPDATE users SET level = level + 1, item_potion = item_potion - 1 WHERE id=?", (user_id,))
+        conn.commit()
+        conn.close()
+        message = "포션 사용! 레벨 +1"
+    user = get_user(user_id)
+    return render_template_string(GAME_HTML, user_id=user_id, **user, message=message)
+
+# ------------------------
+# 앱 실행
+# ------------------------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
